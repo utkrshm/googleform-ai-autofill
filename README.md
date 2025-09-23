@@ -3,7 +3,7 @@ Vietnamese version [here](https://tienthanh214.github.io/computer%20science/auto
 
 Someone send us a Google-form, and we need to fill it everyday or maybe every hour to report something. It seems to be boring, so I just think to write a script to automate the process using **Python 3**
 
-This is a simple and lightweight script to automatically fill and submit a Google form with random data. The script is customizable, allowing you to fill the form with the data you need.
+This is a simple and lightweight script to automatically fill and submit a Google form with AI-generated data. The script is customizable, allowing you to fill the form with the data you need.
 
 It's also include a request body *generator* for those who prefer to manually input data, you can simply copy and paste a Google form URL, eliminating the need for manual inspection.
 
@@ -14,6 +14,7 @@ It's also include a request body *generator* for those who prefer to manually in
   - [Table of Contents](#table-of-contents)
   - [Features](#features)
   - [Prerequisites](#prerequisites)
+    - [Environment Variables](#environment-variables)
 - [Getting Started](#getting-started)
   - [Access and get the URL](#access-and-get-the-url)
   - [Extract information](#extract-information)
@@ -27,19 +28,31 @@ It's also include a request body *generator* for those who prefer to manually in
   - [Run the Script](#run-the-script)
   - [Customize the Script](#customize-the-script)
 - [Limitations](#limitations)
+- [Acknowledgements](#acknowledgements)
 
 ## Features
 - [x] Supports multiple pages Google forms
 - [x] Supports Google Forms that collect email addresses (Responder input)
 - [x] Automatically generates the request body using the `form.py` script
-- [x] Auto-fills the form with random values (customizable) and submits it
+- [x] Auto-fills the form with AI-generated responses using Groq
+- [x] Generates unique personalities for each form submission to provide varied answers
 
 ## Prerequisites
 - Python 3.x
-- `requests` library (`pip install requests` or `pip install -r requirements.txt`)
+- Dependencies: `pip install -r requirements.txt`
+
+### Environment Variables
+
+This project uses the Groq API to generate responses. You need to get an API key from [Groq](https://console.groq.com/keys).
+
+Create a `.env` file in the root directory of the project and add your API key like this:
+
+```
+GROQ_API_KEY="YOUR_API_KEY_HERE"
+```
 
 # Getting Started
-If you only want to fill and submit a Google form with random data, or customize the script to fill the form with the data you need, you can skip to the [AutoFill and Submit](#autofill-and-submit) section.
+If you only want to fill and submit a Google form with AI-generated data, you can skip to the [AutoFill and Submit](#autofill-and-submit) section.
 
 Below are the steps to create a Python script to fill and submit a Google form. If you want to skip the manual inspection step, you can use the `form.py` script to automatically generate the request body (as described in the [Extract information Automatically](#automatically) section).
 
@@ -68,7 +81,7 @@ python form.py -h
 
 Example:
 ```bash
-python form.py 'https://docs.google.com/forms/u/0/d/e/1FAIpQLSdwcwvrOeBG200L0tCSUHc1MLebycACWIi3qw0UBK31GE26Yg/formResponse' -o results.txt
+python form.py 'https://docs.google.com/forms/u/0/d/e/1FAIpQLSdwcwvrOeBG200L0tCSUHc1MLebycACWIi3qw0UBK31GE26Yg/formResponse' --num 10
 ```
 
 ### Manually
@@ -133,7 +146,10 @@ Done!!!
 
 # AutoFill and Submit
 ## Run the Script
-Run the `main.py` script with the Google form URL as an argument to automatically fill and submit the form with ***random data***
+Run the `main.py` script with the Google form URL as an argument to automatically fill and submit the form with ***AI-generated data***.
+
+Each submission will be filled out by a unique AI-generated personality.
+
 ```bash
 python main.py <your-gg-form-url>
 ```
@@ -145,8 +161,17 @@ Use `-r`/`--required` to only fill the form with required fields
 ```bash
 python main.py 'https://docs.google.com/forms/u/0/d/e/1FAIpQLSdwcwvrOeBG200L0tCSUHc1MLebycACWIi3qw0UBK31GE26Yg/viewform' -r
 ```
+
+Use `-n`/`--num` to specify the number of submissions you want to make.
+```bash
+python main.py <your-gg-form-url> -n 10
+```
+
 ## Customize the Script
-The [main.py](main.py) script is a simple example of how to use the `form.py` script to automatically fill and submit a Google form. You can customize the `fill_form` function to fill the form with the data you need.
+You can customize the AI's behavior by editing the prompts within the `main.py` file. Look for the `get_personality` and `get_response` functions to change how the AI generates personalities and answers questions.
 
 # Limitations
-Please note that this script currently operates only with Google Forms that do not require user authentication.
+Please note that this script currently operates only with Google Forms that do not require user authentication. It also requires a valid Groq API key to function.
+
+# Acknowledgements
+This repo would not have been possible without [the main repo](https://github.com/tienthanh214/googleform-autofill-and-submit) from which this repo has been forked. Please consider starring that repo as well.
