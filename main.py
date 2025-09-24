@@ -3,6 +3,7 @@ import datetime
 import json
 import time
 import requests
+import random
 
 from typing import List, Any, Union
 from groq import Groq
@@ -13,8 +14,9 @@ load_dotenv()
 
 client = Groq()
 
-global personality
+global personality, memory
 personality = {"name": "none", "email_address": "na", "personality": "dne"}
+memory = []
 
 PERSONALITY_MODEL = "openai/gpt-oss-20b"
 RESPONSE_MODEL = "moonshotai/kimi-k2-instruct-0905"
@@ -27,7 +29,7 @@ It is not necessary that this person be a good person, they can be a rebellious 
 
 Return your response as a JSON object:
 {
-    "name": "Name of the person",
+    "name": "Name of the person (only the name, can also only be the first name)",
     "email_address": "Email address of the person, with a gmail account",
     "personality": "A full detailing of the person's personality, as a string"
 }
@@ -45,24 +47,31 @@ Return your response as a JSON object:
     ).choices[0].message
     
 def get_response(question, choices: Union[List, str], required: bool):
+    # Construct system prompt
     sys_prompt = f""" 
 You are acting on behalf of a person as an intelligent agent to fill a google form. Your name is {personality['name']} with the email ID {personality['email_address']}. Your personality is this: \n {personality['personality']}.\n\nAct as this person and answer the questions posed to you.
 
 If you have been given choices in a question, make sure that your response is a choice within the choices.
 
-Try your best to not use obscure or complex language for open-ended questions, act like the age of the person you're representing.
+Try your best to not use obscure or complex language for open-ended questions, act like the age of the person you're representing. 
 
-You have to return a JSON object with an "response" key.
+For open-ended questions, you may look at the personality of the person you're representing and write a low-effort (one word or max to max one line answers) or high-effort answer, talking like a real human being in a formal manner. If you don't want to answer it (if you think the person will not put too much effort into answering a form), you can just write "NA" or "-", in tune with the person's personality. Keep in mind that most people write very short answers to open-ended questions, only very few personalities type out good answers. You can also write "no" to a yes/no question.
+
+These are the question answer pairs that have already been answered:\n
 """ 
+    for msg in memory:
+        if msg['role'] == "user":
+            sys_prompt += msg['content'] + " - "
+        elif msg['role'] == 'assistant':
+            sys_prompt += msg['content'] + "\n"
+    sys_prompt += "\n\nYou have to return a JSON object with an \"response\" key."
 
     # Construct the user prompt
     usr_prompt = f"Question: {question}\n\n"
-    
     if type(choices) == list:
         usr_prompt += f"Choices available to answer this question: {choices}"
     else:
         usr_prompt += f"This is a wide answer question so if you feel like it, you can leave it, or answer in one {choices}"
-    
     if required:
         usr_prompt += "\n\nThis is a required question, so you must answer it. There's no option for you not to answer this question."
     
@@ -86,23 +95,30 @@ You have to return a JSON object with an "response" key.
             if type(choices) == list and response in choices: break
             elif type(choices) == str: break
         except:
-            print("Personality creation failed, retrying...")
+            print("Failed to retrieve answer, retrying...")
             retries += 1
-            if retries == 3: raise Exception("Max retries for fetching personality exceeded...")
+            if retries == 3: raise Exception("Max retries for fetching answer exceeded...")
             continue
 
+
+    memory.extend([
+        { "role": "user", "content": usr_prompt },
+        { "role": "assistant", "content": response }
+    ])
     return response
 
 def fill_agentic_answer(type_id, entry_id, options, required = False, entry_name = ''):
-    ''' Fill random value for a form entry 
+    ''' Use agentic AI to fill the responses to the form 
         Customize your own fill_algorithm here
         Note: please follow this func signature to use as fill_algorithm in form.get_form_submit_request '''
     
     # print(type_id, entry_id, options, required, entry_name)
     
-    # Customize for specific entry_id
-    if entry_id == 'emailAddress':
-        return personality["email_address"]
+    # Send email only if required or if "mood strikes"
+    if "email address" in entry_name.lower():
+        prob = random.randint(0, 100)
+        if prob > 50 or required: return personality['email_address']
+        else: return ""
     
     if type_id == 0: # Short answer
         response = get_response(entry_name, choices='sentence', required=required)
@@ -113,7 +129,7 @@ def fill_agentic_answer(type_id, entry_id, options, required = False, entry_name
     if type_id == 5: # Linear scale
         response =  get_response(entry_name, choices=options, required=required)
     
-    print(f"Question: {entry_name}\nChoices: {options}\nResponse: {response}\n")
+    print(f"Question: {entry_name}\nRequired: {required}\nChoices: {options}\nResponse: {response}\n")
     
     # if type_id == 3: # Dropdown
     #     return random.choice(options)
@@ -176,6 +192,7 @@ if __name__ == '__main__':
         while True:
             try:
                 personality = json.loads(get_personality().content)
+                memory = []
                 break
             except:
                 print("Personality creation failed, retrying...")
