@@ -18,12 +18,16 @@ global personality, memory
 personality = {"name": "none", "email_address": "na", "personality": "dne"}
 memory = []
 
-PERSONALITY_MODEL = "openai/gpt-oss-20b"
-RESPONSE_MODEL = "moonshotai/kimi-k2-instruct-0905"
+# PERSONALITY_MODEL = "openai/gpt-oss-20b"
+PERSONALITY_MODEL = "openai/gpt-oss-120b"
+RESPONSE_MODEL = "moonshotai/kimi-k2-instruct"
+# RESPONSE_MODEL = "qwen/qwen3-32b"
 
 def get_personality():
     prompt = """
 Craft a unique personality about a person in college in India. Give them preferences about religion, following parent's advice, their behaviour, their characteristics, and give them some insecurities. Also give some viewpoints they might have on certain worldwide topics, like taste in music, and geopolitics and give them academic interests (if they exist) and creative characteristics (if they exist). Give me a detailed response of their personality, and only their personality.
+
+Do not use the names: Rahul, Aryan, Arjun.
 
 It is not necessary that this person be a good person, they can be a rebellious person as well.
 
@@ -49,13 +53,11 @@ Return your response as a JSON object:
 def get_response(question, choices: Union[List, str], required: bool):
     # Construct system prompt
     sys_prompt = f""" 
-You are acting on behalf of a person as an intelligent agent to fill a google form. Your name is {personality['name']} with the email ID {personality['email_address']}. Your personality is this: \n {personality['personality']}.\n\nAct as this person and answer the questions posed to you.
+You are acting on behalf of a person as an intelligent agent to fill a google form. Your name is {personality['name']} with the email ID {personality['email_address']}. Your personality is this: \n {personality['personality']}.\n\nAct as this person and answer the questions posed to you in a formal manner, do not be informal with the responses.
 
 If you have been given choices in a question, make sure that your response is a choice within the choices.
 
-Try your best to not use obscure or complex language for open-ended questions, act like the age of the person you're representing. 
-
-For open-ended questions, you may look at the personality of the person you're representing and write a low-effort (one word or max to max one line answers) or high-effort answer, talking like a real human being in a formal manner. If you don't want to answer it (if you think the person will not put too much effort into answering a form), you can just write "NA" or "-", in tune with the person's personality. Keep in mind that most people write very short answers to open-ended questions, only very few personalities type out good answers. You can also write "no" to a yes/no question.
+For open-ended questions, you may look at the personality of the person you're representing and write a low-effort (one word or max to max one line answers) or high-effort answer, talking like a real human being. If you don't want to answer it (if you think the person will not put too much effort into answering a form), you can just write "NA" or "-", in tune with the person's personality. Keep in mind that most people write very short answers to open-ended questions, only very few personalities type out good answers. You can also write "No" to a yes/no question.
 
 These are the question answer pairs that have already been answered:\n
 """ 
@@ -94,8 +96,8 @@ These are the question answer pairs that have already been answered:\n
             
             if type(choices) == list and response in choices: break
             elif type(choices) == str: break
-        except:
-            print("Failed to retrieve answer, retrying...")
+        except Exception as e:
+            print(f"Failed to retrieve answer, retrying...\nError: {e}")
             retries += 1
             if retries == 3: raise Exception("Max retries for fetching answer exceeded...")
             continue
@@ -114,21 +116,32 @@ def fill_agentic_answer(type_id, entry_id, options, required = False, entry_name
     
     # print(type_id, entry_id, options, required, entry_name)
     
+    if "your name" in entry_name.lower():
+        prob = random.randint(0, 100)
+        return personality['name'] if prob > 50 else personality['name'].split()[0]
+    
     # Send email only if required or if "mood strikes"
-    if "email address" in entry_name.lower():
+    if "email" in entry_name.lower():
         prob = random.randint(0, 100)
         if prob > 50 or required: return personality['email_address']
         else: return ""
     
-    if type_id == 0: # Short answer
-        response = get_response(entry_name, choices='sentence', required=required)
-    if type_id == 1: # Paragraph
-        response =  get_response(entry_name, choices='paragraph', required=required)
+    # # Don't answer not required questions, answer if "mood strikes"
+    # if not required:
+    #     prob = random.randint(0, 100)
+    #     if prob > 50: return
+
+    
+    # if type_id == 0: # Short answer
+    #     response = get_response(entry_name, choices='sentence', required=required)
+    # if type_id == 1: # Paragraph
+    #     response =  get_response(entry_name, choices='paragraph', required=required)
     if type_id == 2: # Multiple choice
         response =  get_response(entry_name, choices=options, required=required)
     if type_id == 5: # Linear scale
         response =  get_response(entry_name, choices=options, required=required)
-    
+
+    if type_id in [0, 1]: response = ""
     print(f"Question: {entry_name}\nRequired: {required}\nChoices: {options}\nResponse: {response}\n")
     
     # if type_id == 3: # Dropdown
@@ -185,7 +198,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     for i in range(args.num[0]):
-        print(f"\n\n\n\n===========SUBMISSION {i}=============")
+        print(f"\n\n\n\n===========SUBMISSION {i+1}=============")
 
         # Fetch correct and proper personality
         retries = 0
@@ -194,8 +207,8 @@ if __name__ == '__main__':
                 personality = json.loads(get_personality().content)
                 memory = []
                 break
-            except:
-                print("Personality creation failed, retrying...")
+            except Exception as e:
+                print(f"Personality creation failed, retrying...\nError: {e}")
                 retries += 1
                 if retries == 3: raise Exception("Max retries for fetching personality exceeded...")
                 continue
